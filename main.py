@@ -4,5 +4,5 @@ app = FastAPI()
 
 @app.get("/")
 def home():
-    return {"message": "Hello World!"}
+    return {"message": "This was deployed automatically!"}
 
