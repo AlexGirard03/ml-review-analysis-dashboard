@@ -4,5 +4,5 @@ app = FastAPI()
 
 @app.get("/")
 def home():
-    return {"message": "This was deployed automatically using docker!"}
+    return {"message": "This was deployed automatically using Docker!"}
 
