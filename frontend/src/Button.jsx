@@ -1,7 +1,7 @@
-function Button () {
+function Button ({callback}) {
 
     return (
-        <button onClick={() => alert("Hello!")}>Login</button>
+        <button onClick={callback}>Click Me!</button>
     )
 
 }

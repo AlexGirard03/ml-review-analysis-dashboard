@@ -7,7 +7,8 @@ on:
 
 env:
   AWS_REGION: us-east-1
-  ECR_REPOSITORY: ml-review-analysis-dashboard/backend
+  ECR_FRONTEND_REPOSITORY: ml-review-analysis-dashboard/frontend
+  ECR_BACKEND_REPOSITORY: ml-review-analysis-dashboard/backend
   ECR_REGISTRY: 596953737242.dkr.ecr.us-east-1.amazonaws.com
 
 jobs:
@@ -29,30 +30,65 @@ jobs:
       - name: Login to ECR
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build Docker image
+      # Build, tag, and push frontend docker image
+      - name: Build frontend Docker image
         run: |
           docker build \
-          -t $ECR_REPOSITORY:${{ github.sha }} .
+          -t $ECR_FRONTEND_REPOSITORY:${{ github.sha }} ./frontend
 
-      - name: Tag image with version
+      - name: Tag frontend image with version
         run: |
           docker tag \
-          $ECR_REPOSITORY:${{ github.sha }} \
-          $ECR_REGISTRY/$ECR_REPOSITORY:${{ github.ref_name }}
+          $ECR_FRONTEND_REPOSITORY:${{ github.sha }} \
+          $ECR_REGISTRY/$ECR_FRONTEND_REPOSITORY:${{ github.ref_name }}
 
-      - name: Tag image with commit SHA
+      - name: Tag frontend image with commit SHA
         run: |
           docker tag \
-          $ECR_REPOSITORY:${{ github.sha }} \
-          $ECR_REGISTRY/$ECR_REPOSITORY:${{ github.sha }}
+          $ECR_FRONTEND_REPOSITORY:${{ github.sha }} \
+          $ECR_REGISTRY/$ECR_FRONTEND_REPOSITORY:${{ github.sha }}
       
-      - name: Push images
+      - name: Push frontend images
         run: |
           docker push \
-          $ECR_REGISTRY/$ECR_REPOSITORY:${{ github.ref_name }}
+          $ECR_REGISTRY/$ECR_FRONTEND_REPOSITORY:${{ github.ref_name }}
       
           docker push \
-          $ECR_REGISTRY/$ECR_REPOSITORY:${{ github.sha }}
+          $ECR_REGISTRY/$ECR_FRONTEND_REPOSITORY:${{ github.sha }}
+
+      
+      # Build, tag, and push backend docker image
+      - name: Build Backend Docker image
+        run: |
+          docker build \
+          -t $ECR_BACKEND_REPOSITORY:${{ github.sha }} ./backend
+
+      - name: Tag backend image with version
+        run: |
+          docker tag \
+          $ECR_BACKEND_REPOSITORY:${{ github.sha }} \
+          $ECR_REGISTRY/$ECR_BACKEND_REPOSITORY:${{ github.ref_name }}
+
+      - name: Tag backend image with commit SHA
+        run: |
+          docker tag \
+          $ECR_BACKEND_REPOSITORY:${{ github.sha }} \
+          $ECR_REGISTRY/$ECR_BACKEND_REPOSITORY:${{ github.sha }}
+      
+      - name: Push backend images
+        run: |
+          docker push \
+          $ECR_REGISTRY/$ECR_BACKEND_REPOSITORY:${{ github.ref_name }}
+      
+          docker push \
+          $ECR_REGISTRY/$ECR_BACKEND_REPOSITORY:${{ github.sha }}
+
+      - name: Copy Compose file to EC2
+        run: |
+          scp -i ${{ secrets.EC2_SSH_KEY }} \
+            -o StrictHostKeyChecking=no \
+            docker-compose-prod.yml \
+            ubuntu@${{ secrets.EC2_HOST }}:/app/docker-compose-prod.yml
 
   deploy:
 
@@ -60,17 +96,20 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+
+      # Deploy frontend and backend docker containers using docker compose file
       - name: Deploy to EC2
         uses: appleboy/ssh-action@v1
+        env:
+          IMAGE_TAG: ${{ github.ref_name }}
+          ECR_REGISTRY: ${{ env.ECR_REGISTRY }}
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
+          envs: IMAGE_TAG, ECR_REGISTRY
 
           script: |
-
-            ECR_REGISTRY="596953737242.dkr.ecr.us-east-1.amazonaws.com"
-            ECR_REPOSITORY="ml-review-analysis-dashboard/backend"
 
             aws ecr get-login-password \
             --region us-east-1 | \
@@ -79,15 +118,7 @@ jobs:
             --password-stdin \
             $ECR_REGISTRY
 
-            docker pull \
-            $ECR_REGISTRY/$ECR_REPOSITORY:${{ github.ref_name }}
+            docker compose -f docker-compose-prod.yml pull
+            docker compose -f docker-compose-prod.yml up -d
 
-            docker stop backend || true
-
-            docker rm backend || true
-
-            docker run -d \
-            --name backend \
-            --restart unless-stopped \
-            -p 8000:8000 \
-            $ECR_REGISTRY/$ECR_REPOSITORY:${{ github.ref_name }}
+            

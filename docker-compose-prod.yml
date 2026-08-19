@@ -1,0 +1,10 @@
+services:
+  frontend:
+    image: ${ECR_REGISTRY}/ml-review-analysis-dashboard/frontend:${IMAGE_TAG}
+    ports: 
+      - "443:443"
+
+  backend:
+    image: ${ECR_REGISTRY}/ml-review-analysis-dashboard/backend:${IMAGE_TAG}
+    expose: 
+      - "8000"

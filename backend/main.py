@@ -2,7 +2,7 @@ from fastapi import FastAPI
 
 app = FastAPI()
 
-@app.get("/")
+@app.get("/api/")
 def home():
-    return {"message": "This was deployed automatically using Docker!"}
+    return {"message": "Hello from the backend!"}
 
