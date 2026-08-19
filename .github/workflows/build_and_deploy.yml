@@ -94,6 +94,9 @@ jobs:
 
       - name: Copy Compose file to EC2
         run: |
+          echo "${{ secrets.EC2_SSH_KEY }}" > ec2_key.pem
+          chmod 600 ec2_key.pem
+
           scp -i ${{ secrets.EC2_SSH_KEY }} \
             -o StrictHostKeyChecking=no \
             docker-compose-prod.yml \
